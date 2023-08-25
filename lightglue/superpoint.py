@@ -167,6 +167,7 @@ class SuperPoint(nn.Module):
         # Compute the dense keypoint scores
         cPa = self.relu(self.convPa(x))
         scores = self.convPb(cPa)
+        print(scores.shape)
         scores = torch.nn.functional.softmax(scores, 1)[:, :-1]
         b, _, h, w = scores.shape
         print('height:', h)
