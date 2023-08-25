@@ -169,6 +169,8 @@ class SuperPoint(nn.Module):
         scores = self.convPb(cPa)
         scores = torch.nn.functional.softmax(scores, 1)[:, :-1]
         b, _, h, w = scores.shape
+        print(h)
+        print(w)
         scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, 8, 8)
         scores = scores.permute(0, 1, 3, 2, 4).reshape(b, h*8, w*8)
         scores = simple_nms(scores, self.conf['nms_radius'])
