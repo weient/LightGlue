@@ -210,10 +210,10 @@ class SuperPoint(nn.Module):
         print('d_afternorm:', descriptors.shape)
         # Extract descriptors
         # mod
-        keypoints = [torch.zeros([1, 1, h*8*w*8, 2])]
+        grid = [torch.zeros([1, 1, h*8*w*8, 2])]
         print(keypoints[0].shape)
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
-                       for k, d in zip(keypoints, descriptors)]
+                       for k, d in zip(grid, descriptors)]
         print('d:', descriptors[0].shape)
         return {
             'keypoints': torch.stack(keypoints, 0),
