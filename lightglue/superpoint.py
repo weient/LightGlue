@@ -205,6 +205,7 @@ class SuperPoint(nn.Module):
         # Compute the dense descriptors
         cDa = self.relu(self.convDa(x))
         descriptors = self.convDb(cDa)
+        print('d:', descriptors.shape)
         descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
 
         # Extract descriptors
