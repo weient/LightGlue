@@ -80,8 +80,11 @@ def sample_descriptors(keypoints, descriptors, s: int = 8):
                               ).to(keypoints)[None]
     keypoints = keypoints*2 - 1  # normalize to (-1, 1)
     args = {'align_corners': True} if torch.__version__ >= '1.3' else {}
+    print(keypoints.view(b, 1, -1, 2).shape)
+    print('before grid:', descriptors.shape)
     descriptors = torch.nn.functional.grid_sample(
         descriptors, keypoints.view(b, 1, -1, 2), mode='bilinear', **args)
+    print('after grid:', descriptors.shape)
     descriptors = torch.nn.functional.normalize(
         descriptors.reshape(b, c, -1), p=2, dim=1)
     return descriptors
@@ -170,8 +173,6 @@ class SuperPoint(nn.Module):
         print(scores.shape)
         scores = torch.nn.functional.softmax(scores, 1)[:, :-1]
         b, _, h, w = scores.shape
-        print('height:', h)
-        print('weight:', w)
         scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, 8, 8)
         scores = scores.permute(0, 1, 3, 2, 4).reshape(b, h*8, w*8)
         scores = simple_nms(scores, self.conf['nms_radius'])
