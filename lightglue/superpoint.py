@@ -205,13 +205,12 @@ class SuperPoint(nn.Module):
         # Compute the dense descriptors
         cDa = self.relu(self.convDa(x))
         descriptors = self.convDb(cDa)
-        print('d:', descriptors.shape)
         descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
-
+        print('d_afternorm:', descriptors.shape)
         # Extract descriptors
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
                        for k, d in zip(keypoints, descriptors)]
-
+        print('d:', descriptors.shape)
         return {
             'keypoints': torch.stack(keypoints, 0),
             'keypoint_scores': torch.stack(scores, 0),
