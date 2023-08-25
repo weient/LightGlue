@@ -209,6 +209,7 @@ class SuperPoint(nn.Module):
         descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
         print('d_afternorm:', descriptors.shape)
         # Extract descriptors
+        print(keypoints[0].shape)
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
                        for k, d in zip(keypoints, descriptors)]
         print('d:', descriptors[0].shape)
