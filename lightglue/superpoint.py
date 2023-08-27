@@ -81,10 +81,8 @@ def sample_descriptors(keypoints, descriptors, s: int = 8):
     keypoints = keypoints*2 - 1  # normalize to (-1, 1)
     args = {'align_corners': True} if torch.__version__ >= '1.3' else {}
     print(keypoints.view(b, 1, -1, 2).shape)
-    print('before grid:', descriptors.shape)
     descriptors = torch.nn.functional.grid_sample(
         descriptors, keypoints.view(b, 1, -1, 2), mode='bilinear', **args)
-    print('after grid:', descriptors.shape)
     descriptors = torch.nn.functional.normalize(
         descriptors.reshape(b, c, -1), p=2, dim=1)
     return descriptors
@@ -170,7 +168,6 @@ class SuperPoint(nn.Module):
         # Compute the dense keypoint scores
         cPa = self.relu(self.convPa(x))
         scores = self.convPb(cPa)
-        print(scores.shape)
         scores = torch.nn.functional.softmax(scores, 1)[:, :-1]
         b, _, h, w = scores.shape
         scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, 8, 8)
@@ -207,15 +204,15 @@ class SuperPoint(nn.Module):
         cDa = self.relu(self.convDa(x))
         descriptors = self.convDb(cDa)
         descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
-        print('d_afternorm:', descriptors.shape)
         # Extract descriptors
         # mod
         grid = [torch.zeros([1, 1, h*8*w*8, 2])]
-        print(keypoints[0].shape)
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
                        for k, d in zip(keypoints, descriptors)]
         #descriptors[0] = descriptors[0][:200, :]
-        print('d:', descriptors[0].shape)
+        
+        print('keypoints shape:', torch.stack(keypoints, 0).shape)
+        print('descriptors shape:', torch.stack(descriptors, 0).transpose(-1, -2).shape)
         return {
             'keypoints': torch.stack(keypoints, 0),
             'keypoint_scores': torch.stack(scores, 0),
