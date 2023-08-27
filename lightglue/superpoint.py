@@ -80,7 +80,6 @@ def sample_descriptors(keypoints, descriptors, s: int = 8):
                               ).to(keypoints)[None]
     keypoints = keypoints*2 - 1  # normalize to (-1, 1)
     args = {'align_corners': True} if torch.__version__ >= '1.3' else {}
-    print(keypoints.view(b, 1, -1, 2).shape)
     descriptors = torch.nn.functional.grid_sample(
         descriptors, keypoints.view(b, 1, -1, 2), mode='bilinear', **args)
     descriptors = torch.nn.functional.normalize(
@@ -212,6 +211,7 @@ class SuperPoint(nn.Module):
         #descriptors[0] = descriptors[0][:200, :]
         
         print('keypoints shape:', torch.stack(keypoints, 0).shape)
+        print('scores shape:', torch.stack(scores, 0).shape)
         print('descriptors shape:', torch.stack(descriptors, 0).transpose(-1, -2).shape)
         return {
             'keypoints': torch.stack(keypoints, 0),
