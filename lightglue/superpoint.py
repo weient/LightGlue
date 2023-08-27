@@ -215,7 +215,7 @@ class SuperPoint(nn.Module):
         print('keypoints shape:', torch.stack(keypoints, 0).shape)
         print('scores shape:', torch.stack(scores, 0).shape)
         print('descriptors shape:', torch.stack(descriptors, 0).transpose(-1, -2).shape)
-        print('descriptor_all shape:', torch.stack(descriptor_all, 0).transpose(-1, -2).shape))
+        print('descriptor_all shape:', torch.stack(descriptor_all, 0).transpose(-1, -2).shape)
         return {
             'keypoints': torch.stack(keypoints, 0),
             'keypoint_scores': torch.stack(scores, 0),
