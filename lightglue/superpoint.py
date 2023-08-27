@@ -206,6 +206,8 @@ class SuperPoint(nn.Module):
         # Extract descriptors
         # mod
         grid = [torch.zeros([1, 1, h*8*w*8, 2])]
+        descriptor_all = [sample_descriptors(k[None], d[None], 8)[0]
+                       for k, d in zip(grid, descriptors)]
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
                        for k, d in zip(keypoints, descriptors)]
         #descriptors[0] = descriptors[0][:200, :]
@@ -213,10 +215,12 @@ class SuperPoint(nn.Module):
         print('keypoints shape:', torch.stack(keypoints, 0).shape)
         print('scores shape:', torch.stack(scores, 0).shape)
         print('descriptors shape:', torch.stack(descriptors, 0).transpose(-1, -2).shape)
+        print('descriptor_all shape:', torch.stack(descriptor_all, 0).transpose(-1, -2).shape))
         return {
             'keypoints': torch.stack(keypoints, 0),
             'keypoint_scores': torch.stack(scores, 0),
             'descriptors': torch.stack(descriptors, 0).transpose(-1, -2),
+            'descriptor_all': torch.stack(descriptor_all, 0).transpose(-1, -2)
         }
 
     def extract(self, img: torch.Tensor, **conf) -> dict:
