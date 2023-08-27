@@ -214,7 +214,7 @@ class SuperPoint(nn.Module):
         print(keypoints[0].shape)
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
                        for k, d in zip(keypoints, descriptors)]
-        descriptors[0] = descriptors[0][:, :200, :, :]
+        #descriptors[0] = descriptors[0][:, :200, :, :]
         print('d:', descriptors[0].shape)
         return {
             'keypoints': torch.stack(keypoints, 0),
