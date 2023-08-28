@@ -206,8 +206,8 @@ class SuperPoint(nn.Module):
         # Extract descriptors
         # mod
         grid = [torch.Tensor([[i, j] for i in range(h*8) for j in range(w*8)])]
-        grid = grid.unsqueeze(0)
-        grid = grid.unsqueeze(0)
+        grid[0] = grid[0].unsqueeze(0)
+        grid[0] = grid[0].unsqueeze(0)
         descriptor_all = [sample_descriptors(k[None], d[None], 8)[0]
                        for k, d in zip(grid, descriptors)]
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
