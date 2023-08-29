@@ -197,8 +197,9 @@ class SuperPoint(nn.Module):
                 for k, s in zip(keypoints, scores)]))
 
         # Convert (h, w) to (x, y)
+        print('before flip:', keypoints)
         keypoints = [torch.flip(k, [1]).float() for k in keypoints]
-
+        print('after flip:', keypoints)
         # Compute the dense descriptors
         cDa = self.relu(self.convDa(x))
         descriptors = self.convDb(cDa)
