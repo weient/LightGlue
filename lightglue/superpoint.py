@@ -169,6 +169,8 @@ class SuperPoint(nn.Module):
         scores = self.convPb(cPa)
         scores = torch.nn.functional.softmax(scores, 1)[:, :-1]
         b, _, h, w = scores.shape
+        print('h:', h)
+        print('w:', w)
         scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, 8, 8)
         scores = scores.permute(0, 1, 3, 2, 4).reshape(b, h*8, w*8)
         scores = simple_nms(scores, self.conf['nms_radius'])
@@ -197,11 +199,7 @@ class SuperPoint(nn.Module):
                 for k, s in zip(keypoints, scores)]))
 
         # Convert (h, w) to (x, y)
-        print('before flip:', keypoints)
-        print(keypoints[0].shape)
         keypoints = [torch.flip(k, [1]).float() for k in keypoints]
-        print('after flip:', keypoints)
-        print(keypoints[0].shape)
         # Compute the dense descriptors
         cDa = self.relu(self.convDa(x))
         descriptors = self.convDb(cDa)
