@@ -206,7 +206,7 @@ class SuperPoint(nn.Module):
         descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
         # Extract descriptors
         # mod
-        grid = [torch.Tensor([[i, j] for i in range(w*8) for j in range(h*8)]).to(keypoints[None])]
+        grid = [torch.Tensor([[i, j] for i in range(w*8) for j in range(h*8)]).to(keypoints[0])]
         #grid[0] = grid[0].unsqueeze(0)
         #grid[0] = grid[0].unsqueeze(0)
         descriptor_all = [sample_descriptors(k[None], d[None], 8)[0]
