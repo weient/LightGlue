@@ -105,7 +105,7 @@ class SuperPoint(nn.Module):
 
     preprocess_conf = {
         **ImagePreprocessor.default_conf,
-        'resize': 2048,
+        'resize': 1024,
         'grayscale': True,
     }
 
