@@ -392,7 +392,7 @@ class LightGlue(nn.Module):
                 pattern = f'cross_attn.{i}', f'transformers.{i}.cross_attn'
                 state_dict = {k.replace(*pattern): v for k, v in state_dict.items()}
             self.load_state_dict(state_dict, strict=False)
-        self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
+        
         # static lengths LightGlue is compiled for (only used with torch.compile)
         self.static_lengths = None
 
@@ -509,16 +509,13 @@ class LightGlue(nn.Module):
                 desc1 = desc1.index_select(1, keep1)
                 encoding1 = encoding1.index_select(-2, keep1)
                 prune1[:, ind1] += 1
-        print('before:', desc0.shape, desc1.shape)
-        desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
-        desc0_mlp = self.MLP(desc0)
-        desc1_mlp = self.MLP(desc1)
-        print('after:', desc0_mlp.shape, desc1_mlp.shape)
         
-        scores_mlp, _ = self.log_assignment[i](desc0_mlp, desc1_mlp)
+        desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
+        desc0_out = desc0.clone()
+        desc1_out = desc1.clone()
+        
         scores, _ = self.log_assignment[i](desc0, desc1)
-        print('scores_mlp:', scores_mlp.shape)
-        print('scores:', scores.shape)
+        scores_out = scores.clone()
         m0, m1, mscores0, mscores1 = filter_matches(
             scores, self.conf.filter_threshold)
         matches, mscores = [], []
@@ -558,7 +555,10 @@ class LightGlue(nn.Module):
             'matches': matches,
             'scores': mscores,
             'prune0': prune0,
-            'prune1': prune1
+            'prune1': prune1,
+            'input0': desc0_out,
+            'input1': desc1_out,
+            'label': scores_out
         }
 
         return pred
