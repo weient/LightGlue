@@ -508,8 +508,9 @@ class LightGlue(nn.Module):
                 desc1 = desc1.index_select(1, keep1)
                 encoding1 = encoding1.index_select(-2, keep1)
                 prune1[:, ind1] += 1
-
+        print('before:', desc0.shape, desc1.shape)
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
+        print('after:', desc0.shape, desc1.shape)
         scores, _ = self.log_assignment[i](desc0, desc1)
         m0, m1, mscores0, mscores1 = filter_matches(
             scores, self.conf.filter_threshold)
