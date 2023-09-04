@@ -6,6 +6,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from typing import Optional, List, Callable, Tuple
+from torchrl.modules import MLP
 
 try:
     from flash_attn.modules.mha import FlashCrossAttention
@@ -391,7 +392,7 @@ class LightGlue(nn.Module):
                 pattern = f'cross_attn.{i}', f'transformers.{i}.cross_attn'
                 state_dict = {k.replace(*pattern): v for k, v in state_dict.items()}
             self.load_state_dict(state_dict, strict=False)
-
+        self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
         # static lengths LightGlue is compiled for (only used with torch.compile)
         self.static_lengths = None
 
@@ -510,8 +511,14 @@ class LightGlue(nn.Module):
                 prune1[:, ind1] += 1
         print('before:', desc0.shape, desc1.shape)
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
-        print('after:', desc0.shape, desc1.shape)
+        desc0_mlp = self.MLP(desc0)
+        desc1_mlp = self.MLP(desc1)
+        print('after:', desc0_mlp.shape, desc1_mlp.shape)
+        
+        scores_mlp, _ = self.log_assignment[i](desc0_mlp, desc1_mlp)
         scores, _ = self.log_assignment[i](desc0, desc1)
+        print('scores_mlp:', scores_mlp.shape)
+        print('scores:', scores.shape)
         m0, m1, mscores0, mscores1 = filter_matches(
             scores, self.conf.filter_threshold)
         matches, mscores = [], []
