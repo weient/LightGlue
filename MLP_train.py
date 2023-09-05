@@ -8,6 +8,21 @@ import numpy as np
 from torchrl.modules import MLP
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
+import torch.nn.functional as F
+from datetime import datetime
+def sigmoid_log_double_softmax(
+        sim: torch.Tensor, z0: torch.Tensor, z1: torch.Tensor) -> torch.Tensor:
+    """ create the log assignment matrix from logits and similarity"""
+    b, m, n = sim.shape
+    certainties = F.logsigmoid(z0) + F.logsigmoid(z1).transpose(1, 2)
+    scores0 = F.log_softmax(sim, 2)
+    scores1 = F.log_softmax(
+        sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
+    scores = sim.new_full((b, m+1, n+1), 0)
+    scores[:, :m, :n] = (scores0 + scores1 + certainties)
+    scores[:, :-1, -1] = F.logsigmoid(-z0.squeeze(-1))
+    scores[:, -1, :-1] = F.logsigmoid(-z1.squeeze(-1))
+    return scores
 
 class MatchAssignment(nn.Module):
     def __init__(self, dim: int) -> None:
@@ -32,6 +47,7 @@ class MatchAssignment(nn.Module):
  
 class MLP_module(nn.Module):
     def __init__(self):
+        super().__init__()
         dim = 3
         n_layers = 1
         self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
@@ -42,12 +58,14 @@ class MLP_module(nn.Module):
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
         scores_mlp, _ = self.log_assignment[0](desc0_mlp, desc1_mlp)
+        return scores_mlp
 
 class MLPDataset(Dataset):
 
     # data loading
     def __init__(self):
-        self.data = torch.load('MLP_data.pt')
+        self.data_path = '/mnt/home_6T/public/weien/MLP_data.pt'
+        self.data = torch.load(self.data_path)
     # working for indexing
     def __getitem__(self, index):
         return self.data[index][0], self.data[index][1], self.data[index][2]
@@ -55,11 +73,14 @@ class MLPDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
 train_set = MLPDataset()
-train_loader = DataLoader(train_set, batch_size=4, shuffle=True)
-model = MLP_module()
-loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+val_set = MLPDataset()
+train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
+val_loader = DataLoader(train_set, batch_size=1, shuffle=True)
+model = MLP_module().to(device)
+loss_fn = nn.MSELoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.00001, momentum=0.9)
 
 
 def train_one_epoch(epoch_index, tb_writer):
@@ -75,9 +96,9 @@ def train_one_epoch(epoch_index, tb_writer):
 
         # Make predictions for this batch
         outputs = model(input0, input1)
-
         # Compute the loss and its gradients
         loss = loss_fn(outputs, label)
+        #with torch.autograd.detect_anomaly():
         loss.backward()
 
         # Adjust learning weights
@@ -85,8 +106,9 @@ def train_one_epoch(epoch_index, tb_writer):
 
         # Gather data and report
         running_loss += loss.item()
-        if i % 1000 == 999:
-            last_loss = running_loss / 1000 # loss per batch
+        #print(loss.item())
+        if i % 10 == 9:
+            last_loss = running_loss / 10 # loss per batch
             print('  batch {} loss: {}'.format(i + 1, last_loss))
             tb_x = epoch_index * len(train_loader) + i + 1
             tb_writer.add_scalar('Loss/train', last_loss, tb_x)
@@ -97,7 +119,7 @@ def train_one_epoch(epoch_index, tb_writer):
 
 # Initializing in a separate cell so we can easily add more epochs to the same run
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-writer = SummaryWriter('runs/fashion_trainer_{}'.format(timestamp))
+writer = SummaryWriter('/mnt/home_6T/public/weien/MLP_checkpoint/runs/fashion_trainer_{}'.format(timestamp))
 epoch_number = 0
 
 EPOCHS = 5
@@ -119,9 +141,9 @@ for epoch in range(EPOCHS):
 
     # Disable gradient computation and reduce memory consumption.
     with torch.no_grad():
-        for i, vdata in enumerate(validation_loader):
-            vinputs, vlabels = vdata
-            voutputs = model(vinputs)
+        for i, vdata in enumerate(val_loader):
+            vin0, vin1, vlabels = vdata
+            voutputs = model(vin0, vin1)
             vloss = loss_fn(voutputs, vlabels)
             running_vloss += vloss
 
@@ -138,7 +160,7 @@ for epoch in range(EPOCHS):
     # Track best performance, and save the model's state
     if avg_vloss < best_vloss:
         best_vloss = avg_vloss
-        model_path = 'model_{}_{}'.format(timestamp, epoch_number)
+        model_path = '/mnt/home_6T/public/weien/MLP_checkpoint/model_{}_{}'.format(timestamp, epoch_number)
         torch.save(model.state_dict(), model_path)
 
     epoch_number += 1
