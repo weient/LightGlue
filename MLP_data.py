@@ -17,7 +17,7 @@ data = []
 nums = [str(i) for i in range(1, 21)]
 r = 2
 combinations = list(itertools.combinations(nums, r))
-for i in range(15, 16):
+for i in range(1, 16):
     if i==4:
         continue
     for j in combinations:
