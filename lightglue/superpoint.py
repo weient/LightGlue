@@ -204,25 +204,26 @@ class SuperPoint(nn.Module):
         descriptors = torch.nn.functional.normalize(descriptors, p=2, dim=1)
         # Extract descriptors
         # mod
-        grid = [torch.Tensor([[i, j] for i in range(w*8) for j in range(h*8)]).to(keypoints[0])]
+        #grid = [torch.Tensor([[i, j] for i in range(w*8) for j in range(h*8)]).to(keypoints[0])]
         #print('grid:', grid)
         #grid[0] = grid[0].unsqueeze(0)
         #grid[0] = grid[0].unsqueeze(0)
-        descriptor_all = [sample_descriptors(k[None], d[None], 8)[0]
-                       for k, d in zip(grid, descriptors)]
+        #descriptor_all = [sample_descriptors(k[None], d[None], 8)[0]
+        #               for k, d in zip(grid, descriptors)]
         descriptors = [sample_descriptors(k[None], d[None], 8)[0]
                        for k, d in zip(keypoints, descriptors)]
         #print('original:', descriptors[0][:, 0])
-        
+        '''
         print('keypoints shape:', torch.stack(keypoints, 0).shape)
         print('scores shape:', torch.stack(scores, 0).shape)
         print('descriptors shape:', torch.stack(descriptors, 0).transpose(-1, -2).shape)
         print('descriptor_all shape:', torch.stack(descriptor_all, 0).transpose(-1, -2).shape)
+        '''
         return {
             'keypoints': torch.stack(keypoints, 0),
             'keypoint_scores': torch.stack(scores, 0),
-            'descriptors': torch.stack(descriptors, 0).transpose(-1, -2).contiguous(),
-            'descriptor_all': torch.stack(descriptor_all, 0).transpose(-1, -2).contiguous()
+            'descriptors': torch.stack(descriptors, 0).transpose(-1, -2).contiguous()
+            #'descriptor_all': torch.stack(descriptor_all, 0).transpose(-1, -2).contiguous()
         }
 
     def extract(self, img: torch.Tensor, **conf) -> dict:

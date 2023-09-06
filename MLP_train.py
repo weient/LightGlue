@@ -122,7 +122,7 @@ timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 writer = SummaryWriter('/mnt/home_6T/public/weien/MLP_checkpoint/runs/fashion_trainer_{}'.format(timestamp))
 epoch_number = 0
 
-EPOCHS = 5
+EPOCHS = 500
 
 best_vloss = 1_000_000.
 
