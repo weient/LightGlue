@@ -91,7 +91,8 @@ class MLPDataset(Dataset):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
 model = MLP_module().to(device)
 loss_fn = nn.MSELoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=0.00001, momentum=0.9)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
 matcher = LightGlue(features='superpoint').eval().to(device)
 
@@ -112,22 +113,28 @@ def train_one_epoch(epoch_index, tb_writer):
 
         # Make predictions for this batch
         outputs = model(input0, input1)
+        
         # Compute the loss and its gradients
         loss = loss_fn(outputs, label)
+        
+        
         #with torch.autograd.detect_anomaly():
         loss.backward()
 
+        # gradient clipping
+        torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5, norm_type=2)
+        
         # Adjust learning weights
         optimizer.step()
 
         # Gather data and report
         running_loss += loss.item()
         #print(loss.item())
-        if i % 100 == 99:
-            last_loss = running_loss / 100 # loss per batch
+        if i % 1000 == 999:
+            last_loss = running_loss / 1000 # loss per batch
             print('  batch {} loss: {}'.format(i + 1, last_loss))
-            tb_x = epoch_index * len(train_loader) + i + 1
-            tb_writer.add_scalar('Loss/train', last_loss, tb_x)
+            #tb_x = epoch_index * len(train_loader) + i + 1
+            #tb_writer.add_scalar('Loss/train', last_loss, tb_x)
             running_loss = 0.
 
     return last_loss
@@ -175,11 +182,14 @@ for epoch in range(EPOCHS):
             running_vloss += vloss
 
     avg_vloss = running_vloss / (i + 1)
+    scheduler.step(avg_vloss)
     print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
 
     # Log the running loss averaged per batch
     # for both training and validation
-    writer.add_scalars('Training vs. Validation Loss',
+    #writer.add_scalar('Loss/train', avg_loss, epoch_number+1)
+    #writer.add_scalar('Loss/validation', avg_vloss, epoch_number+1)
+    writer.add_scalars('Training vs. Validation',
                     { 'Training' : avg_loss, 'Validation' : avg_vloss },
                     epoch_number+1)
     writer.flush()
