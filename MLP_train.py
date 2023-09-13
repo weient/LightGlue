@@ -60,7 +60,7 @@ class MLP_module(nn.Module):
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
         scores_mlp, _ = self.log_assignment[0](desc0_mlp, desc1_mlp)
-        return scores_mlp
+        return desc0_mlp, desc1_mlp, scores_mlp
 
 class MLPDataset(Dataset):
 
@@ -151,7 +151,7 @@ best_vloss = 1_000_000.
 seed = 100
 torch.manual_seed(seed)
 dataset = MLPDataset()
-train_set, val_set = random_split(dataset, [0.8, 0.2])
+train_set, val_set = random_split(dataset, [0.7, 0.3])
 train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
 val_loader = DataLoader(val_set, batch_size=1, shuffle=True)
 for epoch in range(EPOCHS):

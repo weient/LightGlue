@@ -304,8 +304,25 @@ def filter_matches(scores: torch.Tensor, th: float):
     valid1 = mutual1 & valid0.gather(1, m1)
     m0 = torch.where(valid0, m0, -1)
     m1 = torch.where(valid1, m1, -1)
+    np.savetxt('mutual.txt', mutual0.cpu().numpy())
+
     return m0, m1, mscores0, mscores1
 
+
+class MLP_module(nn.Module):
+    def __init__(self):
+        super().__init__()
+        dim = 3
+        n_layers = 1
+        self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
+        self.log_assignment = nn.ModuleList(
+            [MatchAssignment(dim) for _ in range(n_layers)])
+    def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
+
+        desc0_mlp = self.MLP(desc0)
+        desc1_mlp = self.MLP(desc1)
+        scores_mlp, _ = self.log_assignment[0](desc0_mlp, desc1_mlp)
+        return desc0_mlp, desc1_mlp, scores_mlp
 
 class LightGlue(nn.Module):
     default_conf = {
@@ -344,6 +361,10 @@ class LightGlue(nn.Module):
 
     def __init__(self, features='superpoint', **conf) -> None:
         super().__init__()
+        PATH = '/mnt/home_6T/public/weien/model_20230911_140723_124'
+        self.MLP = MLP_module()
+        self.MLP.load_state_dict(torch.load(PATH))
+        self.MLP.eval()
         self.conf = {**self.default_conf, **conf}
         if features is not None:
             assert (features in list(self.features.keys()))
@@ -511,11 +532,15 @@ class LightGlue(nn.Module):
                 prune1[:, ind1] += 1
         
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
-        desc0_out = desc0.clone()
-        desc1_out = desc1.clone()
+        #desc0_out = desc0.clone()
+        #desc1_out = desc1.clone()
         
         scores, _ = self.log_assignment[i](desc0, desc1)
-        scores_out = scores.clone()
+        #scores_out = scores.clone()
+        
+        desc0_3, desc1_3, scores = self.MLP(desc0, desc1)
+        #score_l1 = scores - scores_tmp
+        #np.savetxt('l1.txt', score_l1.squeeze(0).cpu().numpy())
         m0, m1, mscores0, mscores1 = filter_matches(
             scores, self.conf.filter_threshold)
         matches, mscores = [], []
@@ -555,10 +580,10 @@ class LightGlue(nn.Module):
             'matches': matches,
             'scores': mscores,
             'prune0': prune0,
-            'prune1': prune1,
-            'input0': desc0_out,
-            'input1': desc1_out,
-            'label': scores_out
+            'prune1': prune1
+            #'input0': desc0_out,
+            #'input1': desc1_out,
+            #'label': scores_out
         }
 
         return pred
