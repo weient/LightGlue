@@ -20,11 +20,13 @@ def sigmoid_log_double_softmax(
     scores0 = F.log_softmax(sim, 2)
     scores1 = F.log_softmax(
         sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
+    
     scores = sim.new_full((b, m+1, n+1), 0)
     scores[:, :m, :n] = (scores0 + scores1 + certainties)
     scores[:, :-1, -1] = F.logsigmoid(-z0.squeeze(-1))
     scores[:, -1, :-1] = F.logsigmoid(-z1.squeeze(-1))
-    return scores
+    scores_no = F.sigmoid(scores.clone())
+    return scores, scores_no
 
 class MatchAssignment(nn.Module):
     def __init__(self, dim: int) -> None:
@@ -41,8 +43,8 @@ class MatchAssignment(nn.Module):
         sim = torch.einsum('bmd,bnd->bmn', mdesc0, mdesc1)
         z0 = self.matchability(desc0)
         z1 = self.matchability(desc1)
-        scores = sigmoid_log_double_softmax(sim, z0, z1)
-        return scores, sim
+        scores, scores_no = sigmoid_log_double_softmax(sim, z0, z1)
+        return scores, sim, scores_no
 
     def get_matchability(self, desc: torch.Tensor):
         return torch.sigmoid(self.matchability(desc)).squeeze(-1)
@@ -55,12 +57,15 @@ class MLP_module(nn.Module):
         self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
         self.log_assignment = nn.ModuleList(
             [MatchAssignment(dim) for _ in range(n_layers)])
+        self.MLP_de = MLP(in_features=3, out_features=256, num_cells=[16, 32, 64, 128])
     def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
 
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
-        scores_mlp, _ = self.log_assignment[0](desc0_mlp, desc1_mlp)
-        return desc0_mlp, desc1_mlp, scores_mlp
+        scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
+        desc0_back = self.MLP_de(desc0_mlp)
+        desc1_back = self.MLP_de(desc1_mlp)
+        return scores_no, desc0_back, desc1_back
 
 class MLPDataset(Dataset):
 
@@ -91,6 +96,7 @@ class MLPDataset(Dataset):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
 model = MLP_module().to(device)
 loss_fn = nn.MSELoss()
+#loss_L1 = nn.L1Loss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
@@ -112,23 +118,25 @@ def train_one_epoch(epoch_index, tb_writer):
         optimizer.zero_grad()
 
         # Make predictions for this batch
-        outputs = model(input0, input1)
+        outputs, d0_back, d1_back = model(input0, input1)
+        
         
         # Compute the loss and its gradients
         loss = loss_fn(outputs, label)
-        
-        
+        loss_d0 = loss_fn(d0_back, input0)
+        loss_d1 = loss_fn(d1_back, input1)
+        loss_total = 0.1*loss + loss_d0 + loss_d1
         #with torch.autograd.detect_anomaly():
-        loss.backward()
+        loss_total.backward()
 
         # gradient clipping
-        torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5, norm_type=2)
+        #torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5, norm_type=2)
         
         # Adjust learning weights
         optimizer.step()
 
         # Gather data and report
-        running_loss += loss.item()
+        running_loss += loss_total.item()
         #print(loss.item())
         if i % 1000 == 999:
             last_loss = running_loss / 1000 # loss per batch
@@ -177,9 +185,12 @@ for epoch in range(EPOCHS):
             vfeats1 = extractor.extract(vimg1.to(device))
             vmatches01 = matcher({'image0': vfeats0, 'image1': vfeats1})
             vin0, vin1, vlabels = vmatches01['input0'], vmatches01['input1'], vmatches01['label']
-            voutputs = model(vin0, vin1)
+            voutputs, vd0_back, vd1_back = model(vin0, vin1)
             vloss = loss_fn(voutputs, vlabels)
-            running_vloss += vloss
+            vloss_d0 = loss_fn(vd0_back, vin0)
+            vloss_d1 = loss_fn(vd1_back, vin1)
+            vloss_total = 0.1*vloss + vloss_d0 + vloss_d1
+            running_vloss += vloss_total
 
     avg_vloss = running_vloss / (i + 1)
     scheduler.step(avg_vloss)

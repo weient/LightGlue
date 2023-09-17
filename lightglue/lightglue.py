@@ -259,11 +259,15 @@ def sigmoid_log_double_softmax(
     scores0 = F.log_softmax(sim, 2)
     scores1 = F.log_softmax(
         sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
+    
     scores = sim.new_full((b, m+1, n+1), 0)
     scores[:, :m, :n] = (scores0 + scores1 + certainties)
     scores[:, :-1, -1] = F.logsigmoid(-z0.squeeze(-1))
     scores[:, -1, :-1] = F.logsigmoid(-z1.squeeze(-1))
-    return scores
+    scores_no = F.sigmoid(scores.clone())
+    return scores, scores_no
+
+
 
 
 class MatchAssignment(nn.Module):
@@ -281,8 +285,8 @@ class MatchAssignment(nn.Module):
         sim = torch.einsum('bmd,bnd->bmn', mdesc0, mdesc1)
         z0 = self.matchability(desc0)
         z1 = self.matchability(desc1)
-        scores = sigmoid_log_double_softmax(sim, z0, z1)
-        return scores, sim
+        scores, scores_no = sigmoid_log_double_softmax(sim, z0, z1)
+        return scores, sim, scores_no
 
     def get_matchability(self, desc: torch.Tensor):
         return torch.sigmoid(self.matchability(desc)).squeeze(-1)
@@ -321,8 +325,8 @@ class MLP_module(nn.Module):
 
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
-        scores_mlp, _ = self.log_assignment[0](desc0_mlp, desc1_mlp)
-        return desc0_mlp, desc1_mlp, scores_mlp
+        scores_mlp, _, scores_no= self.log_assignment[0](desc0_mlp, desc1_mlp)
+        return desc0_mlp, desc1_mlp, scores_no
 
 class LightGlue(nn.Module):
     default_conf = {
@@ -532,13 +536,13 @@ class LightGlue(nn.Module):
                 prune1[:, ind1] += 1
         
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
-        #desc0_out = desc0.clone()
-        #desc1_out = desc1.clone()
+        desc0_out = desc0.clone()
+        desc1_out = desc1.clone()
         
-        scores, _ = self.log_assignment[i](desc0, desc1)
+        scores, _, scores_no= self.log_assignment[i](desc0, desc1)
         #scores_out = scores.clone()
-        
-        desc0_3, desc1_3, scores = self.MLP(desc0, desc1)
+        scores_out = scores_no
+        #desc0_3, desc1_3, scores = self.MLP(desc0, desc1)
         #score_l1 = scores - scores_tmp
         #np.savetxt('l1.txt', score_l1.squeeze(0).cpu().numpy())
         m0, m1, mscores0, mscores1 = filter_matches(
@@ -580,10 +584,10 @@ class LightGlue(nn.Module):
             'matches': matches,
             'scores': mscores,
             'prune0': prune0,
-            'prune1': prune1
-            #'input0': desc0_out,
-            #'input1': desc1_out,
-            #'label': scores_out
+            'prune1': prune1,
+            'input0': desc0_out,
+            'input1': desc1_out,
+            'label': scores_out
         }
 
         return pred
