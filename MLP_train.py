@@ -20,12 +20,22 @@ def sigmoid_log_double_softmax(
     scores0 = F.log_softmax(sim, 2)
     scores1 = F.log_softmax(
         sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
-    
+
     scores = sim.new_full((b, m+1, n+1), 0)
     scores[:, :m, :n] = (scores0 + scores1 + certainties)
     scores[:, :-1, -1] = F.logsigmoid(-z0.squeeze(-1))
     scores[:, -1, :-1] = F.logsigmoid(-z1.squeeze(-1))
-    scores_no = F.sigmoid(scores.clone())
+    exp = False
+    if exp:
+        scores_no = sim.new_full((b, m+1, n+1), 0)
+        c_exp = F.sigmoid(z0) + F.sigmoid(z1).transpose(1, 2)
+        s0_exp = F.softmax(sim, 2)
+        s1_exp = F.softmax(sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
+        scores_no[:, :m, :n] = (s0_exp + s1_exp + c_exp)
+        scores_no[:, :-1, -1] = F.sigmoid(-z0.squeeze(-1))
+        scores_no[:, -1, :-1] = F.sigmoid(-z1.squeeze(-1))
+    else:
+        scores_no = F.sigmoid(scores.clone())
     return scores, scores_no
 
 class MatchAssignment(nn.Module):
@@ -125,7 +135,7 @@ def train_one_epoch(epoch_index, tb_writer):
         loss = loss_fn(outputs, label)
         loss_d0 = loss_fn(d0_back, input0)
         loss_d1 = loss_fn(d1_back, input1)
-        loss_total = 0.1*loss + loss_d0 + loss_d1
+        loss_total = 0.7*loss + loss_d0 + loss_d1
         #with torch.autograd.detect_anomaly():
         loss_total.backward()
 
@@ -189,7 +199,7 @@ for epoch in range(EPOCHS):
             vloss = loss_fn(voutputs, vlabels)
             vloss_d0 = loss_fn(vd0_back, vin0)
             vloss_d1 = loss_fn(vd1_back, vin1)
-            vloss_total = 0.1*vloss + vloss_d0 + vloss_d1
+            vloss_total = 0.7*vloss + vloss_d0 + vloss_d1
             running_vloss += vloss_total
 
     avg_vloss = running_vloss / (i + 1)

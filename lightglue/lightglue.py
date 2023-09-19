@@ -259,12 +259,22 @@ def sigmoid_log_double_softmax(
     scores0 = F.log_softmax(sim, 2)
     scores1 = F.log_softmax(
         sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
-    
+
     scores = sim.new_full((b, m+1, n+1), 0)
     scores[:, :m, :n] = (scores0 + scores1 + certainties)
     scores[:, :-1, -1] = F.logsigmoid(-z0.squeeze(-1))
     scores[:, -1, :-1] = F.logsigmoid(-z1.squeeze(-1))
-    scores_no = F.sigmoid(scores.clone())
+    exp = False
+    if exp:
+        scores_no = sim.new_full((b, m+1, n+1), 0)
+        c_exp = F.sigmoid(z0) + F.sigmoid(z1).transpose(1, 2)
+        s0_exp = F.softmax(sim, 2)
+        s1_exp = F.softmax(sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
+        scores_no[:, :m, :n] = (s0_exp + s1_exp + c_exp)
+        scores_no[:, :-1, -1] = F.sigmoid(-z0.squeeze(-1))
+        scores_no[:, -1, :-1] = F.sigmoid(-z1.squeeze(-1))
+    else:
+        scores_no = F.sigmoid(scores.clone())
     return scores, scores_no
 
 
@@ -308,7 +318,7 @@ def filter_matches(scores: torch.Tensor, th: float):
     valid1 = mutual1 & valid0.gather(1, m1)
     m0 = torch.where(valid0, m0, -1)
     m1 = torch.where(valid1, m1, -1)
-    np.savetxt('mutual.txt', mutual0.cpu().numpy())
+    #np.savetxt('mutual.txt', mutual0.cpu().numpy())
 
     return m0, m1, mscores0, mscores1
 
@@ -321,12 +331,15 @@ class MLP_module(nn.Module):
         self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
         self.log_assignment = nn.ModuleList(
             [MatchAssignment(dim) for _ in range(n_layers)])
+        self.MLP_de = MLP(in_features=3, out_features=256, num_cells=[16, 32, 64, 128])
     def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
 
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
-        scores_mlp, _, scores_no= self.log_assignment[0](desc0_mlp, desc1_mlp)
-        return desc0_mlp, desc1_mlp, scores_no
+        scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
+        desc0_back = self.MLP_de(desc0_mlp)
+        desc1_back = self.MLP_de(desc1_mlp)
+        return scores_no, desc0_back, desc1_back
 
 class LightGlue(nn.Module):
     default_conf = {
@@ -365,7 +378,7 @@ class LightGlue(nn.Module):
 
     def __init__(self, features='superpoint', **conf) -> None:
         super().__init__()
-        PATH = '/mnt/home_6T/public/weien/model_20230911_140723_124'
+        PATH = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230918_185233_270'
         self.MLP = MLP_module()
         self.MLP.load_state_dict(torch.load(PATH))
         self.MLP.eval()
@@ -536,15 +549,16 @@ class LightGlue(nn.Module):
                 prune1[:, ind1] += 1
         
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
-        desc0_out = desc0.clone()
-        desc1_out = desc1.clone()
-        
-        scores, _, scores_no= self.log_assignment[i](desc0, desc1)
-        #scores_out = scores.clone()
-        scores_out = scores_no
-        #desc0_3, desc1_3, scores = self.MLP(desc0, desc1)
-        #score_l1 = scores - scores_tmp
-        #np.savetxt('l1.txt', score_l1.squeeze(0).cpu().numpy())
+        # Train / Test flag
+        Train = True
+        if Train:
+            desc0_out = desc0.clone() 
+            desc1_out = desc1.clone()
+            scores, _, scores_no= self.log_assignment[i](desc0, desc1)
+            scores_out = scores_no
+        else:
+            scores, _, _ = self.MLP(desc0, desc1)
+
         m0, m1, mscores0, mscores1 = filter_matches(
             scores, self.conf.filter_threshold)
         matches, mscores = [], []
@@ -574,22 +588,33 @@ class LightGlue(nn.Module):
         else:
             prune0 = torch.ones_like(mscores0) * self.conf.n_layers
             prune1 = torch.ones_like(mscores1) * self.conf.n_layers
-
-        pred = {
-            'matches0': m0,
-            'matches1': m1,
-            'matching_scores0': mscores0,
-            'matching_scores1': mscores1,
-            'stop': i+1,
-            'matches': matches,
-            'scores': mscores,
-            'prune0': prune0,
-            'prune1': prune1,
-            'input0': desc0_out,
-            'input1': desc1_out,
-            'label': scores_out
-        }
-
+        if Train:
+            pred = {
+                'matches0': m0,
+                'matches1': m1,
+                'matching_scores0': mscores0,
+                'matching_scores1': mscores1,
+                'stop': i+1,
+                'matches': matches,
+                'scores': mscores,
+                'prune0': prune0,
+                'prune1': prune1,
+                'input0': desc0_out,
+                'input1': desc1_out,
+                'label': scores_out
+            }
+        else:
+            pred = {
+                'matches0': m0,
+                'matches1': m1,
+                'matching_scores0': mscores0,
+                'matching_scores1': mscores1,
+                'stop': i+1,
+                'matches': matches,
+                'scores': mscores,
+                'prune0': prune0,
+                'prune1': prune1
+            }
         return pred
 
     def confidence_threshold(self, layer_index: int) -> float:

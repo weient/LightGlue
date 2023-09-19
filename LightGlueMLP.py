@@ -6,15 +6,15 @@ import torch
 import numpy as np
 
 torch.set_grad_enabled(False)
-images = Path('/mnt/home_6T/public/weien/tmp5')
+images = Path('/mnt/home_6T/public/weien/area1/')
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # 'mps', 'cpu'
 
 extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
 matcher = LightGlue(features='superpoint').eval().to(device)
 
-image0 = load_image(images / '10.9.png')
-image1 = load_image(images / '10.10.png')
+image0 = load_image(images / '1.13.png')
+image1 = load_image(images / '1.14.png')
 feats0 = extractor.extract(image0.to(device))
 feats1 = extractor.extract(image1.to(device))
 matches01 = matcher({'image0': feats0, 'image1': feats1})
