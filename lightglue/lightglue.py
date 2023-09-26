@@ -326,19 +326,19 @@ def filter_matches(scores: torch.Tensor, th: float):
 class MLP_module(nn.Module):
     def __init__(self):
         super().__init__()
-        dim = 3
+        dim = 256
         n_layers = 1
         self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
         self.log_assignment = nn.ModuleList(
             [MatchAssignment(dim) for _ in range(n_layers)])
         self.MLP_de = MLP(in_features=3, out_features=256, num_cells=[16, 32, 64, 128])
     def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
-
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
-        scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
+        #scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
         desc0_back = self.MLP_de(desc0_mlp)
         desc1_back = self.MLP_de(desc1_mlp)
+        scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
         return scores_no, desc0_back, desc1_back
 
 class LightGlue(nn.Module):
@@ -378,10 +378,12 @@ class LightGlue(nn.Module):
 
     def __init__(self, features='superpoint', **conf) -> None:
         super().__init__()
-        PATH = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230918_185233_270'
-        self.MLP = MLP_module()
-        self.MLP.load_state_dict(torch.load(PATH))
-        self.MLP.eval()
+        self.Train = False
+        if not self.Train:
+            PATH = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230925_214348_185'
+            self.MLP = MLP_module()
+            self.MLP.load_state_dict(torch.load(PATH))
+            self.MLP.eval()
         self.conf = {**self.default_conf, **conf}
         if features is not None:
             assert (features in list(self.features.keys()))
@@ -550,8 +552,7 @@ class LightGlue(nn.Module):
         
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
         # Train / Test flag
-        Train = True
-        if Train:
+        if self.Train:
             desc0_out = desc0.clone() 
             desc1_out = desc1.clone()
             scores, _, scores_no= self.log_assignment[i](desc0, desc1)
@@ -588,7 +589,7 @@ class LightGlue(nn.Module):
         else:
             prune0 = torch.ones_like(mscores0) * self.conf.n_layers
             prune1 = torch.ones_like(mscores1) * self.conf.n_layers
-        if Train:
+        if self.Train:
             pred = {
                 'matches0': m0,
                 'matches1': m1,

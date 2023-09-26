@@ -13,8 +13,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # 'mps', 
 extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
 matcher = LightGlue(features='superpoint').eval().to(device)
 
-image0 = load_image(images / '1.13.png')
-image1 = load_image(images / '1.14.png')
+image0 = load_image(images / '1.9.png')
+image1 = load_image(images / '1.10.png')
 feats0 = extractor.extract(image0.to(device))
 feats1 = extractor.extract(image1.to(device))
 matches01 = matcher({'image0': feats0, 'image1': feats1})
@@ -27,7 +27,7 @@ m_kpts0, m_kpts1 = kpts0[matches[..., 0]], kpts1[matches[..., 1]]
 axes = viz2d.plot_images([image0, image1])
 viz2d.plot_matches(m_kpts0, m_kpts1, color='lime', lw=0.2)
 viz2d.add_text(0, f'Stop after {matches01["stop"]} layers', fs=20)
-viz2d.save_plot('/mnt/home_6T/public/weien/out_img_line.png')
+viz2d.save_plot('/mnt/home_6T/public/weien/910.png')
 
 kpc0, kpc1 = viz2d.cm_prune(matches01['prune0']), viz2d.cm_prune(matches01['prune1'])
 viz2d.plot_images([image0, image1])

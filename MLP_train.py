@@ -62,7 +62,7 @@ class MatchAssignment(nn.Module):
 class MLP_module(nn.Module):
     def __init__(self):
         super().__init__()
-        dim = 3
+        dim = 256
         n_layers = 1
         self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
         self.log_assignment = nn.ModuleList(
@@ -72,9 +72,10 @@ class MLP_module(nn.Module):
 
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
-        scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
+        #scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
         desc0_back = self.MLP_de(desc0_mlp)
         desc1_back = self.MLP_de(desc1_mlp)
+        scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
         return scores_no, desc0_back, desc1_back
 
 class MLPDataset(Dataset):
@@ -135,7 +136,8 @@ def train_one_epoch(epoch_index, tb_writer):
         loss = loss_fn(outputs, label)
         loss_d0 = loss_fn(d0_back, input0)
         loss_d1 = loss_fn(d1_back, input1)
-        loss_total = 0.7*loss + loss_d0 + loss_d1
+        loss_total  = 5000*loss + loss_d0 + loss_d1
+        
         #with torch.autograd.detect_anomaly():
         loss_total.backward()
 
@@ -169,7 +171,7 @@ best_vloss = 1_000_000.
 seed = 100
 torch.manual_seed(seed)
 dataset = MLPDataset()
-train_set, val_set = random_split(dataset, [0.7, 0.3])
+train_set, val_set = random_split(dataset, [0.75, 0.25])
 train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
 val_loader = DataLoader(val_set, batch_size=1, shuffle=True)
 for epoch in range(EPOCHS):
@@ -199,7 +201,7 @@ for epoch in range(EPOCHS):
             vloss = loss_fn(voutputs, vlabels)
             vloss_d0 = loss_fn(vd0_back, vin0)
             vloss_d1 = loss_fn(vd1_back, vin1)
-            vloss_total = 0.7*vloss + vloss_d0 + vloss_d1
+            vloss_total = 5000*vloss + vloss_d0 + vloss_d1
             running_vloss += vloss_total
 
     avg_vloss = running_vloss / (i + 1)
