@@ -20,22 +20,12 @@ def sigmoid_log_double_softmax(
     scores0 = F.log_softmax(sim, 2)
     scores1 = F.log_softmax(
         sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
-
     scores = sim.new_full((b, m+1, n+1), 0)
     scores[:, :m, :n] = (scores0 + scores1 + certainties)
     scores[:, :-1, -1] = F.logsigmoid(-z0.squeeze(-1))
     scores[:, -1, :-1] = F.logsigmoid(-z1.squeeze(-1))
-    exp = False
-    if exp:
-        scores_no = sim.new_full((b, m+1, n+1), 0)
-        c_exp = F.sigmoid(z0) + F.sigmoid(z1).transpose(1, 2)
-        s0_exp = F.softmax(sim, 2)
-        s1_exp = F.softmax(sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
-        scores_no[:, :m, :n] = (s0_exp + s1_exp + c_exp)
-        scores_no[:, :-1, -1] = F.sigmoid(-z0.squeeze(-1))
-        scores_no[:, -1, :-1] = F.sigmoid(-z1.squeeze(-1))
-    else:
-        scores_no = F.sigmoid(scores.clone())
+    
+    scores_no = F.sigmoid(scores.clone())
     return scores, scores_no
 
 class MatchAssignment(nn.Module):
@@ -72,7 +62,6 @@ class MLP_module(nn.Module):
 
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
-        #scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
         desc0_back = self.MLP_de(desc0_mlp)
         desc1_back = self.MLP_de(desc1_mlp)
         scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
