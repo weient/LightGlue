@@ -100,7 +100,9 @@ loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
-matcher = LightGlue(features='superpoint').eval().to(device)
+MLPWeight = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230925_214348_185'
+
+matcher = LightGlue(MLPWeight=MLPWeight, features='superpoint').eval().to(device)
 
 def train_one_epoch(epoch_index, tb_writer):
     running_loss = 0.

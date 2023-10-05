@@ -366,11 +366,12 @@ class LightGlue(nn.Module):
         'disk': ('disk_lightglue', 128)
     }
 
-    def __init__(self, features='superpoint', **conf) -> None:
+    def __init__(self, MLPWeight, features='superpoint', **conf) -> None:
         super().__init__()
         self.Train = False
         if not self.Train:
-            PATH = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230925_214348_185'
+            #PATH = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230925_214348_185'
+            PATH = MLPWeight
             self.MLP = MLP_module()
             self.MLP.load_state_dict(torch.load(PATH))
             self.MLP.eval()

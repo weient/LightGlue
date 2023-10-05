@@ -8,12 +8,14 @@ import numpy as np
 torch.set_grad_enabled(False)
 # root to test images
 images = Path('/mnt/home_6T/public/weien/area1/')
+# path to MLP pretrained weight
+MLPWeight = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230925_214348_185'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # 'mps', 'cpu'
 
 # load LightGlue feature extractor & matcher
 extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
-matcher = LightGlue(features='superpoint').eval().to(device)
+matcher = LightGlue(MLPWeight=MLPWeight, features='superpoint').eval().to(device)
 # load 2 test images
 image0 = load_image(images / '1.12.png')
 image1 = load_image(images / '1.15.png')
