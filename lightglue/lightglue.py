@@ -326,10 +326,17 @@ class MLP_module(nn.Module):
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
         #scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
-        desc0_back = self.MLP_de(desc0_mlp)
-        desc1_back = self.MLP_de(desc1_mlp)
-        scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
-        return scores_no, desc0_back, desc1_back
+        
+        # To avoid OutOfMem error
+        genFeature = True
+        if genFeature == False:
+            desc0_back = self.MLP_de(desc0_mlp)
+            desc1_back = self.MLP_de(desc1_mlp)
+            scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
+            return scores_no, desc0_back, desc1_back
+        else:
+            return desc0_mlp, desc0_mlp
+
 
 class LightGlue(nn.Module):
     default_conf = {
