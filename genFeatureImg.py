@@ -20,13 +20,13 @@ torch.set_grad_enabled(False)
 images = Path('/mnt/home_6T/public/weien/area1/')
 
 path = '/mnt/home_6T/public/koki/gibson_tiny/Collierville/pano/'
-img_path1 = path + 'rgb/point_p' + '000024' + '_view_equirectangular_domain_rgb.png'
-img_path2 = path + 'rgb/point_p' + '000025' + '_view_equirectangular_domain_rgb.png'
+img_path0 = path + 'rgb/point_p' + '000024' + '_view_equirectangular_domain_rgb.png'
+img_path1 = path + 'rgb/point_p' + '000022' + '_view_equirectangular_domain_rgb.png'
 
 
-image0 = load_image(img_path1)
+image0 = load_image(img_path0)
 # image0.resize((1024,512))
-image1 = load_image(img_path2)
+image1 = load_image(img_path1)
 
 feats0 = extractor.extract(image0.to(device))
 feats1 = extractor.extract(image1.to(device))

@@ -33,10 +33,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     path = '/mnt/home_6T/public/koki/gibson_tiny/Collierville/pano/'
-    img_path = path + 'rgb/point_p' + '000024' + '_view_equirectangular_domain_rgb.png'
-    depth_path = path + 'mist/point_p' + '000024' + '_view_equirectangular_domain_mist.png'
+    #img_path = path + 'rgb/point_p' + '000024' + '_view_equirectangular_domain_rgb.png'
+    depth_path = path + 'mist/point_p' + '000022' + '_view_equirectangular_domain_mist.png'
     # Reading rgb-d
-    rgb = imread('/home/shih/LightGlue/m0_image_1.png')
+    rgb = imread('/home/shih/LightGlue/m1_image_1.png')
     print(rgb.shape)
 
     depth = imread(depth_path)[...,None].astype(np.float32) * args.scale
@@ -67,4 +67,4 @@ if __name__ == '__main__':
         o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.3, origin=[0, 0, 0])
     ])
 
-    o3d.io.write_point_cloud("/home/shih/LightGlue/render.ply", pcd)
+    o3d.io.write_point_cloud("/home/shih/LightGlue/render_22.ply", pcd)
