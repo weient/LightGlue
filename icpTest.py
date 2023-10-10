@@ -32,8 +32,8 @@ def preprocess_point_cloud(pcd, voxel_size):
 
 def prepare_dataset(voxel_size):
     print(":: Load two point clouds and disturb initial pose.")
-    ply_path0 = "/home/shih/LightGlue/render_22.ply"
-    ply_path1 = "/home/shih/LightGlue/render_24.ply"
+    ply_path0 = "render_22.ply"
+    ply_path1 = "render_24.ply"
     source = o3d.io.read_point_cloud(ply_path0)
     target = o3d.io.read_point_cloud(ply_path1)
     trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
@@ -84,7 +84,7 @@ def execute_fast_global_registration(source_down, target_down, source_fpfh,
     return result
 
 if __name__ == '__main__':
-    voxel_size = 0.001  # means 5cm for this dataset
+    voxel_size = 0.025  # means 5cm for this dataset
     source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(
         voxel_size)
 
@@ -94,7 +94,7 @@ if __name__ == '__main__':
                                                 voxel_size)
     print("global res : ", result_ransac)
     draw_registration_result(source_down, target_down, result_ransac.transformation)
-
+    print(result_ransac.transformation)
     # refine regist
     #result_icp = refine_registration(source, target, source_fpfh, target_fpfh, voxel_size)
     #print(result_icp)
