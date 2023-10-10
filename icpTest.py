@@ -93,8 +93,15 @@ if __name__ == '__main__':
                                                 source_fpfh, target_fpfh,
                                                 voxel_size)
     print("global res : ", result_ransac)
-    draw_registration_result(source_down, target_down, result_ransac.transformation)
+    #draw_registration_result(source_down, target_down, result_ransac.transformation)
 
+    # read original point cloud
+    ply_path0 = "/home/shih/LightGlue/render_22.ply"
+    ply_path1 = "/home/shih/LightGlue/render_24.ply"
+    source = o3d.io.read_point_cloud(ply_path0)
+    target = o3d.io.read_point_cloud(ply_path1)
+    source.transform(result_ransac.transformation)
+    o3d.visualization.draw_geometries([source, target])
     # refine regist
     #result_icp = refine_registration(source, target, source_fpfh, target_fpfh, voxel_size)
     #print(result_icp)
