@@ -84,7 +84,7 @@ def execute_fast_global_registration(source_down, target_down, source_fpfh,
     return result
 
 if __name__ == '__main__':
-    voxel_size = 0.025  # means 5cm for this dataset
+    voxel_size = 0.05  # means 5cm for this dataset
     source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(
         voxel_size)
 
@@ -96,12 +96,21 @@ if __name__ == '__main__':
     #draw_registration_result(source_down, target_down, result_ransac.transformation)
 
     # read original point cloud
-    ply_path0 = "/home/shih/LightGlue/render_22.ply"
-    ply_path1 = "/home/shih/LightGlue/render_24.ply"
+    ply_path0 = "render_22.ply"
+    ply_path1 = "render_24.ply"
     source = o3d.io.read_point_cloud(ply_path0)
     target = o3d.io.read_point_cloud(ply_path1)
+    trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
+                             [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
+    #source.paint_uniform_color([1, 0.706, 0])
+    #target.paint_uniform_color([0, 0.651, 0.929])
+    source.transform(trans_init)
     source.transform(result_ransac.transformation)
+    print('result fitness:', result_ransac.fitness)
+    print('result RMSE:', result_ransac.inlier_rmse)
     o3d.visualization.draw_geometries([source, target])
+    if result_ransac.fitness >= 0.9:
+        o3d.io.write_point_cloud("combine.ply", source+target)
     # refine regist
     #result_icp = refine_registration(source, target, source_fpfh, target_fpfh, voxel_size)
     #print(result_icp)
