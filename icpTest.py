@@ -84,7 +84,7 @@ def execute_fast_global_registration(source_down, target_down, source_fpfh,
     return result
 
 if __name__ == '__main__':
-    voxel_size = 0.05  # means 5cm for this dataset
+    voxel_size = 0.001  # means 5cm for this dataset
     source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(
         voxel_size)
 
@@ -96,14 +96,11 @@ if __name__ == '__main__':
     draw_registration_result(source_down, target_down, result_ransac.transformation)
 
     # refine regist
-    result_icp = refine_registration(source, target, source_fpfh, target_fpfh,
-                                    voxel_size)
-    print(result_icp)
-    draw_registration_result(source, target, result_icp.transformation)
+    #result_icp = refine_registration(source, target, source_fpfh, target_fpfh, voxel_size)
+    #print(result_icp)
+    #draw_registration_result(source, target, result_icp.transformation)
 
     # fast global regist
-    result_fast = execute_fast_global_registration(source_down, target_down,
-                                                source_fpfh, target_fpfh,
-                                                voxel_size)
-    print(result_fast)
-    draw_registration_result(source_down, target_down, result_fast.transformation)
+    #result_fast = execute_fast_global_registration(source_down, target_down, source_fpfh, target_fpfh, voxel_size)
+    #print(result_fast)
+    #draw_registration_result(source_down, target_down, result_fast.transformation)
