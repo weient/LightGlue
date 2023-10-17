@@ -3,6 +3,9 @@ import numpy as np
 import open3d as o3d
 from imageio import imread
 from PIL import Image
+import cv2
+import os
+import argparse
 
 def get_uni_sphere_xyz(H, W):
     j, i = np.meshgrid(np.arange(H), np.arange(W), indexing='ij')
@@ -18,7 +21,6 @@ def get_uni_sphere_xyz(H, W):
 
 if __name__ == '__main__':
 
-    import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--img',
                         help='Image texture in equirectangular format')
@@ -26,21 +28,30 @@ if __name__ == '__main__':
                         help='Depth map')
     parser.add_argument('--scale', default=0.001, type=float,
                         help='Rescale the depth map')
+    #parser.add_argument('--crop_ratio', default=80/512, type=float,
+    #                    help='Crop ratio for upper and lower part of the image')
     parser.add_argument('--crop_ratio', default=80/512, type=float,
                         help='Crop ratio for upper and lower part of the image')
+    
     parser.add_argument('--crop_z_above', default=1.2, type=float,
                         help='Filter 3D point with z coordinate above')
     args = parser.parse_args()
 
-    path = '/mnt/home_6T/public/koki/gibson_tiny/Collierville/pano/'
-    #img_path = path + 'rgb/point_p' + '000024' + '_view_equirectangular_domain_rgb.png'
-    depth_path = path + 'mist/point_p' + '000022' + '_view_equirectangular_domain_mist.png'
+    path = '/mnt/home_6T/public/weien/lightglue/'
+    # img_path = path + 'rgb/point_p' + '000024' + '_view_equirectangular_domain_rgb.png'
+    img_path = path + '0.png'
+    # depth_path = path + 'mist/point_p' + '000022' + '_view_equirectangular_domain_mist.png'
+    depth_path = path + 'depth0_0001.exr'
+    
     # Reading rgb-d
-    rgb = imread('/home/shih/LightGlue/m1_image_1.png')
+    rgb = imread(img_path)
+    rgb = rgb[:, :, :3]
     print(rgb.shape)
-
-    depth = imread(depth_path)[...,None].astype(np.float32) * args.scale
+    os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
+    depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
+    depth = np.expand_dims(depth, axis=2)
     print(depth.shape)
+    #depth = imread(depth_path)[...,None].astype(np.float32) * args.scale
     
     # Project to 3d
     H, W = rgb.shape[:2]
@@ -67,4 +78,4 @@ if __name__ == '__main__':
         o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.3, origin=[0, 0, 0])
     ])
 
-    o3d.io.write_point_cloud("/home/shih/LightGlue/render_22.ply", pcd)
+    o3d.io.write_point_cloud("/mnt/home_6T/public/weien/lightglue/new1.ply", pcd)
