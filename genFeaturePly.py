@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import open3d as o3d
-from imageio import imread
+from imageio.v2 import imread
 from PIL import Image
 import cv2
 import os
@@ -20,22 +20,13 @@ def get_uni_sphere_xyz(H, W):
 
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--img',
-                        help='Image texture in equirectangular format')
-    parser.add_argument('--depth',
-                        help='Depth map')
-    parser.add_argument('--scale', default=0.001, type=float,
-                        help='Rescale the depth map')
-    #parser.add_argument('--crop_ratio', default=80/512, type=float,
-    #                    help='Crop ratio for upper and lower part of the image')
-    parser.add_argument('--crop_ratio', default=80/512, type=float,
-                        help='Crop ratio for upper and lower part of the image')
-    
-    parser.add_argument('--crop_z_above', default=1.2, type=float,
-                        help='Filter 3D point with z coordinate above')
-    args = parser.parse_args()
+    # Rescale the depth map
+    scale = 20
+    # Crop ratio for upper and lower part of the image
+    crop_ratio = 0
+    # Filter 3D point with z coordinate above
+    crop_z_above = 1.2
+    crop_z_below = -0.7
 
     path = '/mnt/home_6T/public/weien/lightglue/'
     # img_path = path + 'rgb/point_p' + '000024' + '_view_equirectangular_domain_rgb.png'
@@ -49,9 +40,9 @@ if __name__ == '__main__':
     print(rgb.shape)
     os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
     depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
-    depth = np.expand_dims(depth, axis=2)
+    depth = np.expand_dims(depth, axis=2) * scale
     print(depth.shape)
-    #depth = imread(depth_path)[...,None].astype(np.float32) * args.scale
+    #depth = imread(depth_path)[...,None].astype(np.float32) * scale
     
     # Project to 3d
     H, W = rgb.shape[:2]
@@ -59,14 +50,15 @@ if __name__ == '__main__':
     xyzrgb = np.concatenate([xyz, rgb/255.], 2)
 
     # Crop the image and flatten
-    if args.crop_ratio > 0:
-        assert args.crop_ratio < 1
-        crop = int(H * args.crop_ratio)
+    if crop_ratio > 0:
+        assert crop_ratio < 1
+        crop = int(H * crop_ratio)
         xyzrgb = xyzrgb[crop:-crop]
     xyzrgb = xyzrgb.reshape(-1, 6)
 
     # Crop in 3d
-    xyzrgb = xyzrgb[xyzrgb[:,2] <= args.crop_z_above]
+    xyzrgb = xyzrgb[xyzrgb[:,2] <= crop_z_above]
+    xyzrgb = xyzrgb[xyzrgb[:,2] >= crop_z_below]
 
     # Visualize
     pcd = o3d.geometry.PointCloud()
@@ -78,4 +70,4 @@ if __name__ == '__main__':
         o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.3, origin=[0, 0, 0])
     ])
 
-    o3d.io.write_point_cloud("/mnt/home_6T/public/weien/lightglue/new1.ply", pcd)
+    o3d.io.write_point_cloud("/home/shih/LightGlue/new1.ply", pcd)
