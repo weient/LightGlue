@@ -55,20 +55,18 @@ class MLP_module(nn.Module):
         dim = 256
         n_layers = 1
         self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
-        self.log_assignment = nn.ModuleList(
-            [MatchAssignment(dim) for _ in range(n_layers)])
+        #self.log_assignment = nn.ModuleList(
+        #    [MatchAssignment(dim) for _ in range(n_layers)])
         self.MLP_de = MLP(in_features=3, out_features=256, num_cells=[16, 32, 64, 128])
     def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
-
         desc0_mlp = self.MLP(desc0)
         desc1_mlp = self.MLP(desc1)
         desc0_back = self.MLP_de(desc0_mlp)
         desc1_back = self.MLP_de(desc1_mlp)
-        scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
-        return scores_no, desc0_back, desc1_back
+        #scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
+        return desc0_back, desc1_back
 
 class MLPDataset(Dataset):
-
     # data loading
     def __init__(self):
         self.data_root = './tmp5/'
@@ -110,17 +108,21 @@ def train_one_epoch(epoch_index, tb_writer):
     for i, data in enumerate(train_loader):
         # Every data instance is an input + label pair
         img0, img1 = data
-        with torch.no_grad():
-            feats0 = extractor.extract(img0.clone().detach().to(device))
-            feats1 = extractor.extract(img1.clone().detach().to(device))
-            matches01 = matcher({'image0': feats0, 'image1': feats1})
-            input0, input1, label = matches01['input0'], matches01['input1'], matches01['label']
-        # Zero your gradients for every batch!
-        optimizer.zero_grad()
-
+        feats0 = extractor.extract(img0.clone().detach().to(device))
+        feats1 = extractor.extract(img1.clone().detach().to(device))
+        matches01 = matcher({'image0': feats0, 'image1': feats1})
+        label = matches01['label']
         # Make predictions for this batch
-        outputs, d0_back, d1_back = model(input0, input1)
-        
+        feats0_des = feats0['descriptors']
+        feats1_des = feats1['descriptors']
+        d0_back, d1_back = model(feats0_des, feats1_des)
+        feats0['descriptors'] = d0_back
+        feats1['descriptors'] = d1_back
+        matches_mlp = matcher({'image0': feats0, 'image1': feats1})
+        outputs = matches_mlp['label']
+
+        # Zero your gradients for every batch!
+        optimizer.zero_grad()        
         
         # Compute the loss and its gradients
         loss = loss_fn(outputs, label)

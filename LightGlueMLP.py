@@ -15,7 +15,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # 'mps', 
 
 # load LightGlue feature extractor & matcher
 extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
-matcher = LightGlue(MLPWeight=MLPWeight, features='superpoint').eval().to(device)
+# TODO : mlp here
+
+matcher = LightGlue(features='superpoint').eval().to(device)
 # load 2 test images
 image0 = load_image(images / '1.12.png')
 image1 = load_image(images / '1.15.png')

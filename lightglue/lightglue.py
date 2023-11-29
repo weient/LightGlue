@@ -312,32 +312,6 @@ def filter_matches(scores: torch.Tensor, th: float):
 
     return m0, m1, mscores0, mscores1
 
-
-class MLP_module(nn.Module):
-    def __init__(self):
-        super().__init__()
-        dim = 256
-        n_layers = 1
-        self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
-        self.log_assignment = nn.ModuleList(
-            [MatchAssignment(dim) for _ in range(n_layers)])
-        self.MLP_de = MLP(in_features=3, out_features=256, num_cells=[16, 32, 64, 128])
-    def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
-        desc0_mlp = self.MLP(desc0)
-        desc1_mlp = self.MLP(desc1)
-        #scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
-        
-        # To avoid OutOfMem error
-        genFeature = True
-        if genFeature == False:
-            desc0_back = self.MLP_de(desc0_mlp)
-            desc1_back = self.MLP_de(desc1_mlp)
-            scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
-            return scores_no, desc0_back, desc1_back
-        else:
-            return desc0_mlp, desc0_mlp
-
-
 class LightGlue(nn.Module):
     default_conf = {
         'name': 'lightglue',  # just for interfacing
@@ -373,9 +347,10 @@ class LightGlue(nn.Module):
         'disk': ('disk_lightglue', 128)
     }
 
-    def __init__(self, MLPWeight=None, features='superpoint', **conf) -> None:
+    def __init__(self, features='superpoint', train=True, **conf) -> None:
         super().__init__()
-        self.Train = False
+        self.Train = train
+        '''
         if not self.Train:
             #PATH = '/mnt/home_6T/public/weien/MLP_checkpoint/model_20230925_214348_185'
             if MLPWeight==None:
@@ -384,6 +359,7 @@ class LightGlue(nn.Module):
             self.MLP = MLP_module()
             self.MLP.load_state_dict(torch.load(PATH))
             self.MLP.eval()
+        '''
         self.conf = {**self.default_conf, **conf}
         if features is not None:
             assert (features in list(self.features.keys()))
@@ -551,7 +527,10 @@ class LightGlue(nn.Module):
                 prune1[:, ind1] += 1
         
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
+        scores, _, scores_out = self.log_assignment[i](desc0, desc1)
+        '''
         # Train / Test flag
+        
         if self.Train:
             desc0_out = desc0.clone() 
             desc1_out = desc1.clone()
@@ -559,6 +538,7 @@ class LightGlue(nn.Module):
             scores_out = scores_no
         else:
             scores, _, _ = self.MLP(desc0, desc1)
+        '''
 
         m0, m1, mscores0, mscores1 = filter_matches(
             scores, self.conf.filter_threshold)
@@ -600,8 +580,6 @@ class LightGlue(nn.Module):
                 'scores': mscores,
                 'prune0': prune0,
                 'prune1': prune1,
-                'input0': desc0_out,
-                'input1': desc1_out,
                 'label': scores_out
             }
         else:
