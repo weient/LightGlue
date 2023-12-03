@@ -11,6 +11,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import torch.nn.functional as F
 from datetime import datetime
 import itertools
+import os
 
 def sigmoid_log_double_softmax(
         sim: torch.Tensor, z0: torch.Tensor, z1: torch.Tensor) -> torch.Tensor:
@@ -69,8 +70,10 @@ class MLP_module(nn.Module):
 class MLPDataset(Dataset):
     # data loading
     def __init__(self):
-        self.data_root = './tmp5/'
+        self.data_root = '/mnt/home_6T/public/shih/scannet/'
+        self.img_pairs = '/mnt/home_6T/public/shih/scannet/image_pairs.txt'
         # self.data_path = '/mnt/home_6T/public/weien/MLP_data/room'+str(index)+'.pt'
+        '''
         nums = [str(i) for i in range(1, 21)]
         r = 2
         combinations = list(itertools.combinations(nums, r))
@@ -81,15 +84,23 @@ class MLPDataset(Dataset):
             for j in combinations:
                 self.data_comb.append([str(i), j[0], j[1]])
         # self.data = torch.load(self.data_path)
+        '''
+        with open(self.img_pairs) as f:
+            self.line = f.read().splitlines()
+        
     # working for indexing
     def __getitem__(self, index):
-        img0 = load_image(self.data_root+self.data_comb[index][0]+'.'+self.data_comb[index][1]+'.png')
-        img1 = load_image(self.data_root+self.data_comb[index][0]+'.'+self.data_comb[index][2]+'.png')
-        
+        scene = self.line[index].split(' ')[0]
+        img0_id =  self.line[index].split(' ')[1]
+        img1_id =  self.line[index].split(' ')[2]
+        #img0 = load_image(self.data_root+self.data_comb[index][0]+'.'+self.data_comb[index][1]+'.png')
+        #img1 = load_image(self.data_root+self.data_comb[index][0]+'.'+self.data_comb[index][2]+'.png')
+        img0 = load_image(os.path.join(self.data_root, 'scene'+scene+'_'+img0_id+'.jpg'))
+        img1 = load_image(os.path.join(self.data_root, 'scene'+scene+'_'+img1_id+'.jpg'))
         return img0, img1
     # return the length of our dataset
     def __len__(self):
-        return len(self.data_comb)
+        return len(self.line)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
 model = MLP_module().to(device)
@@ -112,9 +123,10 @@ def train_one_epoch(epoch_index, tb_writer):
         feats1 = extractor.extract(img1.clone().detach().to(device))
         matches01 = matcher({'image0': feats0, 'image1': feats1})
         label = matches01['label']
+        print("label : ", label.shape)
         # Make predictions for this batch
-        feats0_des = feats0['descriptors']
-        feats1_des = feats1['descriptors']
+        feats0_des = feats0['descriptors'].clone().detach()
+        feats1_des = feats1['descriptors'].clone().detach()
         d0_back, d1_back = model(feats0_des, feats1_des)
         feats0['descriptors'] = d0_back
         feats1['descriptors'] = d1_back
@@ -126,8 +138,8 @@ def train_one_epoch(epoch_index, tb_writer):
         
         # Compute the loss and its gradients
         loss = loss_fn(outputs, label)
-        loss_d0 = loss_fn(d0_back, input0)
-        loss_d1 = loss_fn(d1_back, input1)
+        loss_d0 = loss_fn(d0_back, feats0_des)
+        loss_d1 = loss_fn(d1_back, feats1_des)
         loss_total  = 5000*loss + loss_d0 + loss_d1
         
         #with torch.autograd.detect_anomaly():
@@ -154,7 +166,7 @@ def train_one_epoch(epoch_index, tb_writer):
 
 # Initializing in a separate cell so we can easily add more epochs to the same run
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-writer = SummaryWriter('/mnt/home_6T/public/weien/MLP_checkpoint/runs/fashion_trainer_{}'.format(timestamp))
+writer = SummaryWriter('/mnt/home_6T/public/shih/MLP_checkpoint/runs/fashion_trainer_{}'.format(timestamp))
 epoch_number = 0
 
 EPOCHS = 500
@@ -212,7 +224,7 @@ for epoch in range(EPOCHS):
     # Track best performance, and save the model's state
     if avg_vloss < best_vloss:
         best_vloss = avg_vloss
-        model_path = '/mnt/home_6T/public/weien/MLP_checkpoint/model_{}_{}'.format(timestamp, epoch_number)
+        model_path = '/mnt/home_6T/public/shih/MLP_checkpoint/model_{}_{}'.format(timestamp, epoch_number)
         torch.save(model.state_dict(), model_path)
 
     epoch_number += 1
