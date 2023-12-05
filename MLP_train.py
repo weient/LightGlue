@@ -70,8 +70,8 @@ class MLP_module(nn.Module):
 class MLPDataset(Dataset):
     # data loading
     def __init__(self):
-        self.data_root = '/mnt/home_6T/public/shih/scannet/'
-        self.img_pairs = '/mnt/home_6T/public/shih/scannet/image_pairs.txt'
+        self.data_root = '/work/u6693411/scannet/'
+        self.img_pairs = '/work/u6693411/scannet/image_pairs.txt'
         # self.data_path = '/mnt/home_6T/public/weien/MLP_data/room'+str(index)+'.pt'
         '''
         nums = [str(i) for i in range(1, 21)]
@@ -118,20 +118,22 @@ def train_one_epoch(epoch_index, tb_writer):
 
     for i, data in enumerate(train_loader):
         # Every data instance is an input + label pair
-        img0, img1 = data
-        feats0 = extractor.extract(img0.clone().detach().to(device))
-        feats1 = extractor.extract(img1.clone().detach().to(device))
-        matches01 = matcher({'image0': feats0, 'image1': feats1})
-        label = matches01['label']
-        print("label : ", label.shape)
+        with torch.no_grad():
+            img0, img1 = data
+            feats0 = extractor.extract(img0.clone().detach().to(device))
+            feats1 = extractor.extract(img1.clone().detach().to(device))
+            matches01 = matcher({'image0': feats0, 'image1': feats1})
+            label = matches01['label']
+        #print("label : ", label.shape)
         # Make predictions for this batch
         feats0_des = feats0['descriptors'].clone().detach()
         feats1_des = feats1['descriptors'].clone().detach()
         d0_back, d1_back = model(feats0_des, feats1_des)
         feats0['descriptors'] = d0_back
         feats1['descriptors'] = d1_back
-        matches_mlp = matcher({'image0': feats0, 'image1': feats1})
-        outputs = matches_mlp['label']
+        with torch.no_grad():
+            matches_mlp = matcher({'image0': feats0, 'image1': feats1})
+            outputs = matches_mlp['label']
 
         # Zero your gradients for every batch!
         optimizer.zero_grad()        
@@ -166,7 +168,7 @@ def train_one_epoch(epoch_index, tb_writer):
 
 # Initializing in a separate cell so we can easily add more epochs to the same run
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-writer = SummaryWriter('/mnt/home_6T/public/shih/MLP_checkpoint/runs/fashion_trainer_{}'.format(timestamp))
+writer = SummaryWriter('/work/u6693411/MLP_checkpoint/runs/fashion_trainer_{}'.format(timestamp))
 epoch_number = 0
 
 EPOCHS = 500
@@ -176,8 +178,8 @@ seed = 100
 torch.manual_seed(seed)
 dataset = MLPDataset()
 train_set, val_set = random_split(dataset, [0.75, 0.25])
-train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
-val_loader = DataLoader(val_set, batch_size=1, shuffle=True)
+train_loader = DataLoader(train_set, batch_size=4, shuffle=True)
+val_loader = DataLoader(val_set, batch_size=4, shuffle=True)
 for epoch in range(EPOCHS):
     print('EPOCH {}:'.format(epoch_number + 1))
 
@@ -224,7 +226,7 @@ for epoch in range(EPOCHS):
     # Track best performance, and save the model's state
     if avg_vloss < best_vloss:
         best_vloss = avg_vloss
-        model_path = '/mnt/home_6T/public/shih/MLP_checkpoint/model_{}_{}'.format(timestamp, epoch_number)
+        model_path = '/work/u6693411/MLP_checkpoint/model_{}_{}'.format(timestamp, epoch_number)
         torch.save(model.state_dict(), model_path)
 
     epoch_number += 1

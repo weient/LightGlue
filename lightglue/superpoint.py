@@ -230,7 +230,7 @@ class SuperPoint(nn.Module):
         """ Perform extraction with online resizing"""
         if img.dim() == 3:
             img = img[None]  # add batch dim
-        assert img.dim() == 4 and img.shape[0] == 1
+        assert img.dim() == 4 and img.shape[0] == 4
         shape = img.shape[-2:][::-1]
         img, scales = ImagePreprocessor(
             **{**self.preprocess_conf, **conf})(img)
