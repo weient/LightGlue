@@ -162,7 +162,6 @@ def train_one_epoch(epoch_index, tb_writer):
             #tb_x = epoch_index * len(train_loader) + i + 1
             #tb_writer.add_scalar('Loss/train', last_loss, tb_x)
             running_loss = 0.
-        break
     return last_loss
 
 
