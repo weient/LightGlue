@@ -99,7 +99,7 @@ class SuperPoint(nn.Module):
         'descriptor_dim': 256, #mod
         'nms_radius': 4,
         'max_num_keypoints': None,
-        'detection_threshold': 0.0005,
+        'detection_threshold': 0.0,
         'remove_borders': 4,
     }
 
@@ -180,11 +180,11 @@ class SuperPoint(nn.Module):
             scores[:, :, :pad] = -1
             scores[:, -pad:] = -1
             scores[:, :, -pad:] = -1
-
+        #print("b:",scores.shape)
         # Extract keypoints
         best_kp = torch.where(scores > self.conf['detection_threshold'])
         scores = scores[best_kp]
-
+        #print("a:",len(best_kp))
         # Separate into batches
         keypoints = [torch.stack(best_kp[1:3], dim=-1)[best_kp[0] == i]
                      for i in range(b)]
@@ -198,6 +198,7 @@ class SuperPoint(nn.Module):
 
         # Convert (h, w) to (x, y)
         keypoints = [torch.flip(k, [1]).float() for k in keypoints]
+        #print(len(keypoints[]))
         # Compute the dense descriptors
         cDa = self.relu(self.convDa(x))
         descriptors = self.convDb(cDa)
@@ -230,7 +231,7 @@ class SuperPoint(nn.Module):
         """ Perform extraction with online resizing"""
         if img.dim() == 3:
             img = img[None]  # add batch dim
-        assert img.dim() == 4 and img.shape[0] == 4
+        #assert img.dim() == 4 and img.shape[0] == 4
         shape = img.shape[-2:][::-1]
         img, scales = ImagePreprocessor(
             **{**self.preprocess_conf, **conf})(img)

@@ -162,7 +162,7 @@ def train_one_epoch(epoch_index, tb_writer):
             #tb_x = epoch_index * len(train_loader) + i + 1
             #tb_writer.add_scalar('Loss/train', last_loss, tb_x)
             running_loss = 0.
-
+        break
     return last_loss
 
 
@@ -201,12 +201,19 @@ for epoch in range(EPOCHS):
             vimg0, vimg1 = vdata
             vfeats0 = extractor.extract(vimg0.to(device))
             vfeats1 = extractor.extract(vimg1.to(device))
+            vfeats0_des = vfeats0['descriptors'].clone().detach()
+            vfeats1_des = vfeats1['descriptors'].clone().detach()
             vmatches01 = matcher({'image0': vfeats0, 'image1': vfeats1})
-            vin0, vin1, vlabels = vmatches01['input0'], vmatches01['input1'], vmatches01['label']
-            voutputs, vd0_back, vd1_back = model(vin0, vin1)
+            vlabels = vmatches01['label']
+            vd0_back, vd1_back = model(vfeats0_des, vfeats1_des)
+            vfeats0['descriptors'] = vd0_back
+            vfeats1['descriptors'] = vd1_back
+            matches_mlp = matcher({'image0': vfeats0, 'image1': vfeats1})
+            voutputs = matches_mlp['label']
+
             vloss = loss_fn(voutputs, vlabels)
-            vloss_d0 = loss_fn(vd0_back, vin0)
-            vloss_d1 = loss_fn(vd1_back, vin1)
+            vloss_d0 = loss_fn(vd0_back, vfeats0_des)
+            vloss_d1 = loss_fn(vd1_back, vfeats1_des)
             vloss_total = 5000*vloss + vloss_d0 + vloss_d1
             running_vloss += vloss_total
 

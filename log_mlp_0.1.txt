@@ -1,0 +1,14 @@
+nohup: ignoring input
+EPOCH 1:
+b: torch.Size([4, 1528, 2048])
+a: torch.Size([867])
+Traceback (most recent call last):
+  File "/home/u6693411/LightGlue/MLP_train.py", line 190, in <module>
+    avg_loss = train_one_epoch(epoch_number, writer)
+  File "/home/u6693411/LightGlue/MLP_train.py", line 123, in train_one_epoch
+    feats0 = extractor.extract(img0.clone().detach().to(device))
+  File "/home/u6693411/LightGlue/lightglue/superpoint.py", line 237, in extract
+    feats = self.forward({'image': img})
+  File "/home/u6693411/LightGlue/lightglue/superpoint.py", line 223, in forward
+    'keypoints': torch.stack(keypoints, 0),
+RuntimeError: stack expects each tensor to be equal size, but got [377, 2] at entry 0 and [182, 2] at entry 1

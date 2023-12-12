@@ -1,2 +1,4 @@
 nohup: ignoring input
 EPOCH 1:
+LOSS train 0.0 valid 0.36542844772338867
+EPOCH 2:
