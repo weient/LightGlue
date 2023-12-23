@@ -14,155 +14,122 @@ import itertools
 import os
 
 
-def sigmoid_log_double_softmax(
-        sim: torch.Tensor, z0: torch.Tensor, z1: torch.Tensor) -> torch.Tensor:
-    """ create the log assignment matrix from logits and similarity"""
-    b, m, n = sim.shape
-    certainties = F.logsigmoid(z0) + F.logsigmoid(z1).transpose(1, 2)
-    scores0 = F.log_softmax(sim, 2)
-    scores1 = F.log_softmax(
-        sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
-
-    scores = sim.new_full((b, m+1, n+1), 0)
-    scores[:, :m, :n] = (scores0 + scores1 + certainties)
-    scores[:, :-1, -1] = F.logsigmoid(-z0.squeeze(-1))
-    scores[:, -1, :-1] = F.logsigmoid(-z1.squeeze(-1))
-    exp = False
-    if exp:
-        scores_no = sim.new_full((b, m+1, n+1), 0)
-        c_exp = F.sigmoid(z0) + F.sigmoid(z1).transpose(1, 2)
-        s0_exp = F.softmax(sim, 2)
-        s1_exp = F.softmax(sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
-        scores_no[:, :m, :n] = (s0_exp + s1_exp + c_exp)
-        scores_no[:, :-1, -1] = F.sigmoid(-z0.squeeze(-1))
-        scores_no[:, -1, :-1] = F.sigmoid(-z1.squeeze(-1))
-    else:
-        scores_no = F.sigmoid(scores.clone())
-    return scores, scores_no
-
-class MatchAssignment(nn.Module):
-    def __init__(self, dim: int) -> None:
-        super().__init__()
-        self.dim = dim
-        self.matchability = nn.Linear(dim, 1, bias=True)
-        self.final_proj = nn.Linear(dim, dim, bias=True)
-
-    def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
-        """ build assignment matrix from descriptors """
-        mdesc0, mdesc1 = self.final_proj(desc0), self.final_proj(desc1)
-        _, _, d = mdesc0.shape
-        mdesc0, mdesc1 = mdesc0 / d**.25, mdesc1 / d**.25
-        sim = torch.einsum('bmd,bnd->bmn', mdesc0, mdesc1)
-        z0 = self.matchability(desc0)
-        z1 = self.matchability(desc1)
-        scores, scores_no = sigmoid_log_double_softmax(sim, z0, z1)
-        return scores, sim, scores_no
-
-    def get_matchability(self, desc: torch.Tensor):
-        return torch.sigmoid(self.matchability(desc)).squeeze(-1)
-
-class Encoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        # ,norm_class=nn.BatchNorm1d
-        in_features = 256
-        hidden_sizes = [128, 64, 32, 16]
-        output_size = 3
-        activation_class=nn.ReLU
-        
-        layers = []
-        prev_size = in_features
-
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(prev_size, hidden_size))
-            layers.append(activation_class())
-            layers.append(nn.BatchNorm1d(hidden_size))
-            prev_size = hidden_size
-
-        layers.append(nn.Linear(prev_size, output_size))
-
-        self.mlp = nn.Sequential(*layers)
-    
-    
-    def forward(self, inputs: torch.Tensor):
-        codes = self.mlp(inputs)
-        return codes
-
-class Decoder(nn.Module):
-    def __init__(self, in_features=3 , out_features=256, hidden_sizes= [16, 32, 64, 128], activation_class=nn.ReLU):
-        super(Decoder, self).__init__()
-
-        layers = []
-        prev_size = in_features
-
-
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(prev_size, hidden_size))
-            layers.append(activation_class())
-            layers.append(nn.BatchNorm1d(hidden_size))
-            prev_size = hidden_size
-
-        layers.append(nn.Linear(prev_size, out_features))
-
-        self.mlp = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.mlp(x)
-
-
 class MLP_module(nn.Module):
     def __init__(self):
-        super(MLP_module, self).__init__()
-        # Encoder
-        self.encoder = Encoder()
-        # Decoder
-        self.decoder = Decoder()
-        
-        dim = 256
-        n_layers = 1
-        self.log_assignment = nn.ModuleList(
-            [MatchAssignment(dim) for _ in range(n_layers)])
+        super().__init__()
+        self.MLP = MLP(in_features=256, out_features=3, num_cells=[128, 64, 32, 16])
+        self.MLP_de = MLP(in_features=3, out_features=256, num_cells=[16, 32, 64, 128])
     def forward(self, desc0: torch.Tensor, desc1: torch.Tensor):
-            desc0_mlp = self.encoder(desc0)
-            desc1_mlp = self.encoder(desc1)
-            # scores_mlp, _, scores_no = self.log_assignment[0](desc0_mlp, desc1_mlp)
-            desc0_back = self.decoder(desc0_mlp)
-            desc1_back = self.decoder(desc1_mlp)
-            scores_mlp, _, scores_no = self.log_assignment[0](desc0_back, desc1_back)
-            return scores_no, desc0_back, desc1_back
+        desc0_mlp = self.MLP(desc0)
+        desc1_mlp = self.MLP(desc1)
+        desc0_back = self.MLP_de(desc0_mlp)
+        desc1_back = self.MLP_de(desc1_mlp)
 
+        return desc0_back, desc1_back
 
 class MLPDataset(Dataset):
+    # data loading
     def __init__(self):
-        self.data_root = '/mnt/home_6T/public/koki/scannet_dataset/scans/scene0000_00/rgb/color/'
-
-
-def image_name_to_txt():
-    folder_path = '/mnt/home_6T/public/koki/scannet_dataset/scans/scene0000_00/rgb/color/'
-    files = os.listdir(folder_path)
-    jpg_files = [file for file in files if file.endswith('.jpg')]
-
-    jpg_files.sort()
-    output_txt_path = 'scene0000_00.txt'
-
-    with open(output_txt_path,'w') as f:
-        for file_name in jpg_files:
-            f.write(file_name + '\n')
-    print('done')
-
-
-
-
-
-if __name__ == '__main__':
-    # image_name_to_txt()
-    mlp = MLP_module()
-    print(mlp)
+        
+        self.data_root = "/mnt/home_6T/public/koki/scannet_dataset/color_images/"
+        self.img_pairs = "/mnt/home_6T/public/koki/scannet_dataset/image_pairs.txt"
+        with open(self.img_pairs) as f:
+            self.line = f.read().splitlines()
+        
+    # working for indexing
+    def __getitem__(self, index):
+        # /mnt/home_6T/public/koki/scannet_dataset/color_images/scene0000_00/color/
+        scene = self.line[index].split(' ')[0]
+        img0_id =  self.line[index].split(' ')[1]
+        img1_id =  self.line[index].split(' ')[2]
+        img0 = load_image(os.path.join(self.data_root, 'scene'+scene+'_00/'+'color/'+img0_id+'.jpg'),resize=648)
+        img1 = load_image(os.path.join(self.data_root, 'scene'+scene+'_00/'+'color/'+img1_id+'.jpg'),resize=648)
+        return img0, img1
+    # return the length of our dataset
+    def __len__(self):
+        return len(self.line)
 
 
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
+model = MLP_module().to(device)
+loss_fn = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+extractor = SuperPoint(max_num_keypoints=2048).eval().to(device)  # load the extractor
+matcher = LightGlue(features='superpoint').eval().to(device)
 
+best_vloss = 1_000_000.
+seed = 100
+torch.manual_seed(seed)
+dataset = MLPDataset()
+train_set, val_set = random_split(dataset, [0.75, 0.25])
+train_loader = DataLoader(train_set, batch_size=8, shuffle=True)
+val_loader = DataLoader(val_set, batch_size=8, shuffle=True)
+
+
+def train_one_epoch(epoch_index, tb_writer):
+    running_loss = 0.
+    last_loss = 0.
+
+    for i, data in enumerate(train_loader):
+        # Every data instance is an input + label pair
+        with torch.no_grad():
+            img0, img1 = data
+            feats0 = extractor.extract(img0.clone().detach().to(device))
+            feats1 = extractor.extract(img1.clone().detach().to(device))
+            matches01 = matcher({'image0': feats0, 'image1': feats1})
+            label = matches01['label']
+        #print("label : ", label.shape)
+        # Make predictions for this batch
+        feats0_des = feats0['descriptors'].clone().detach()
+        feats1_des = feats1['descriptors'].clone().detach()
+        d0_back, d1_back = model(feats0_des, feats1_des)
+        feats0['descriptors'] = d0_back
+        feats1['descriptors'] = d1_back
+        with torch.no_grad():
+            matches_mlp = matcher({'image0': feats0, 'image1': feats1})
+            outputs = matches_mlp['label']
+
+        # Zero your gradients for every batch!
+        optimizer.zero_grad()        
+        
+        # Compute the loss and its gradients
+        loss = loss_fn(outputs, label)
+        loss_d0 = loss_fn(d0_back, feats0_des)
+        loss_d1 = loss_fn(d1_back, feats1_des)
+        loss_total  = 5000*loss + loss_d0 + loss_d1
+        
+        #with torch.autograd.detect_anomaly():
+        loss_total.backward()
+
+        # gradient clipping
+        #torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5, norm_type=2)
+        
+        # Adjust learning weights
+        optimizer.step()
+
+        # Gather data and report
+        running_loss += loss_total.item()
+        if i % 1000 == 999:
+            last_loss = running_loss / 1000 # loss per batch
+            print('  batch {} loss: {}'.format(i + 1, last_loss))
+            #tb_x = epoch_index * len(train_loader) + i + 1
+            #tb_writer.add_scalar('Loss/train', last_loss, tb_x)
+            running_loss = 0.
+    return last_loss
+
+# Iterate through the dataset in batches
+for batch in train_loader:
+    # The batch variable contains a tuple of (batch_img0, batch_img1)
+    batch_img0, batch_img1 = batch
+    print(batch_img0.shape)
+    with torch.no_grad():
+        feats0 = extractor.extract(batch_img0.clone().detach().to(device))
+        print(feats0['descriptors'].shape)
+    break
+   
+# 648 484
 
 '''
 export CUDA_VISIBLE_DEVICES=0
