@@ -41,8 +41,6 @@ class TokenConfidence(nn.Module):
             self.token(desc0.detach()).squeeze(-1),
             self.token(desc1.detach()).squeeze(-1))
 
-
-
 class Attention(nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -71,8 +69,6 @@ class SelfBlock(nn.Module):
         qkv = self.toqkv(descriptor)
         qkv = qkv.unflatten(-1, (self.num_heads, -1, 3)).transpose(1, 2)
         q, k, v = qkv[..., 0], qkv[..., 1], qkv[..., 2]
-        
-
 
 class CrossBlock(nn.Module):
     def __init__(self, 
@@ -82,7 +78,6 @@ class CrossBlock(nn.Module):
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-
 
 class MyTransformerLayer(nn.Module):
     def __init__(self, *args, **kwargs):
@@ -108,11 +103,10 @@ class MatchAssignment(nn.Module):
         _, _, d = mdesc0.shape
         mdesc0, mdesc1 = mdesc0 / d**.25, mdesc1 / d**.25
         sim = torch.einsum('bmd,bnd->bmn', mdesc0, mdesc1)
-        
 
 
 
-class fullyGlue(nn.Module):
+class myGlue(nn.Module):
 
     pruning_keypoint_thresholds = 1024
 
@@ -125,12 +119,11 @@ class fullyGlue(nn.Module):
         num_layers = len(output_dims)
 
         self.transformers = nn.ModuleList(
-            [MyTransformerLayer(output_dims[i], output_dims[i+1]) for i in range(num_layers)]
-        )
+            [MyTransformerLayer(output_dims[i], output_dims[i+1]) for i in range(num_layers-1)])
         self.log_assignment = nn.ModuleList(
-            [MatchAssignment(output_dims[i]) for i in range(num_layers)])
+            [MatchAssignment(output_dims[i]) for i in range(num_layers-1)])
         self.token_confidence = nn.ModuleList(
-            [TokenConfidence(output_dims[i]) for i in range(num_layers)])
+            [TokenConfidence(output_dims[i]) for i in range(num_layers-1)])
     def forward(self, data: dict) -> dict:
         data0, data1 = data['image0'], data['image1']
         kpts0, kpts1 = data0['keypoints'], data1['keypoints']
